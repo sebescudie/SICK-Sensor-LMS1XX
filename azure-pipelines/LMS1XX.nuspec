@@ -13,6 +13,6 @@
     <tags>lidar</tags>
   </metadata>
   <files>
-    <file src="SICK-LMS1XX\bin\Debug\netstandard2.0\SICK-LMS1XX.dll" target="lib\netstandard2.0\SICK-LMS1XX.dll" exclude="" />
+    <file src="..\SICK-LMS1XX\bin\Debug\netstandard2.0\SICK-LMS1XX.dll" target="lib\netstandard2.0" exclude="" />
   </files>
 </package>
