@@ -17,3 +17,18 @@ steps:
 - task: VSBuild@1
   inputs:
     solution: 'SICK-LMS1XX.sln'
+
+- task: NuGetCommand@2
+  inputs:
+    command: pack
+    packagesToPack: '**/*.nuspec'
+    versioningScheme: byPrereleaseNumber
+    majorVersion: '$(Major)'
+    minorVersion: '$(Minor)'
+    patchVersion: '$(Patch)'
+
+- task: NuGetCommand@2
+  inputs:
+    command: push
+    nuGetFeedType: external
+    publishFeedCredentials: 'nuget'
