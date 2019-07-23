@@ -20,14 +20,14 @@ steps:
   inputs:
     solution: 'SICK-LMS1XX.sln'
 
-- task: DotNetCoreCLI@2
+- task: NuGetCommand@2
   displayName: 'NuGet Pack'
   inputs:
     command: pack
     packagesToPack: '**/*.nuspec'
     versioningScheme: byPrereleaseNumber
 
-- task: DotNetCoreCLI@2
+- task: NuGetCommand@2
   displayName: 'NugGet Push'
   inputs:
     command: push
