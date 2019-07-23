@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/10/nuspec.xsd">
+  <metadata>
+    <id>LMS1XX</id>
+    <version>$version$</version>
+    <title>LMS1XX</title>
+    <authors>beolabs-io</authors>
+    <owners>sebescudie</owners>
+    <projectUrl>https://github.com/sebescudie/SICK-Sensor-LMS1XX</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>A C#.NET class to communicate with SICK SENSOR LMS1xx </summary>
+    <description>A C#.NET class to communicate with SICK SENSOR LMS1xx </description>
+    <tags>lidar</tags>
+  </metadata>
+  <files>
+    <file src="SICK-LMS1XX\bin\Debug\netstandard2.0\SICK-LMS1XX.dll" target="lib\netstandard2.0\SICK-LMS1XX.dll" exclude="" />
+  </files>
+</package>
