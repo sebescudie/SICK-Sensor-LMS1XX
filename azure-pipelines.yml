@@ -23,9 +23,6 @@ steps:
     command: pack
     packagesToPack: '**/*.nuspec'
     versioningScheme: byPrereleaseNumber
-    majorVersion: '$(Major)'
-    minorVersion: '$(Minor)'
-    patchVersion: '$(Patch)'
 
 - task: NuGetCommand@2
   inputs:
