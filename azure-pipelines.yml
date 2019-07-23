@@ -10,6 +10,10 @@ pool:
   vmImage: 'windows-2019'
 
 steps:
+- task: NuGet@0
+  inputs:
+    command: 'restore'
+
 - task: VSBuild@1
   inputs:
     solution: 'SICK-LMS1XX.sln'
