@@ -11,20 +11,24 @@ pool:
 
 steps:
 - task: NuGet@0
+  displayName: 'Restore packages'
   inputs:
     command: 'restore'
 
 - task: VSBuild@1
+  displayName: 'Build'
   inputs:
     solution: 'SICK-LMS1XX.sln'
 
 - task: NuGetCommand@2
+  displayName: 'NuGet Pack'
   inputs:
     command: pack
     packagesToPack: '**/*.nuspec'
     versioningScheme: byPrereleaseNumber
 
 - task: NuGetCommand@2
+  displayName: 'NugGet Push'
   inputs:
     command: push
     nuGetFeedType: external
