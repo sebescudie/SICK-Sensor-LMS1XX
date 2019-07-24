@@ -63,7 +63,6 @@ namespace LMS1XX
 
         public LMS1XX()
         {
-
             this.clientSocket = new TcpClient() { ReceiveTimeout = 1000, SendTimeout = 1000 };
             this.IpAddress = String.Empty;
             this.Port = 0;
@@ -85,6 +84,10 @@ namespace LMS1XX
             return clientSocket.Connected;
         }
 
+        /// <summary>
+        /// Connects to the socket
+        /// </summary>
+        /// <returns></returns>
         public SocketConnectionResult Connect()
         {
             SocketConnectionResult status = (clientSocket.Connected) ? SocketConnectionResult.CONNECTED : SocketConnectionResult.DISCONNECTED;
@@ -101,6 +104,10 @@ namespace LMS1XX
             return status;
         }
 
+        /// <summary>
+        /// Connects to the socket
+        /// </summary>
+        /// <returns></returns>
         public async Task<SocketConnectionResult> ConnectAsync()
         {
             SocketConnectionResult status = (clientSocket.Connected) ? SocketConnectionResult.CONNECTED : SocketConnectionResult.DISCONNECTED;
@@ -117,6 +124,10 @@ namespace LMS1XX
             return status;
         }
 
+        /// <summary>
+        /// Disconnects the socket
+        /// </summary>
+        /// <returns></returns>
         public SocketConnectionResult Disconnect()
         {
             SocketConnectionResult status = (clientSocket.Connected) ? SocketConnectionResult.CONNECTED : SocketConnectionResult.DISCONNECTED;
@@ -134,6 +145,10 @@ namespace LMS1XX
             return status;
         }
 
+        /// <summary>
+        /// Start the laser and (unless in Standby mode) the motor of the the device.
+        /// </summary>
+        /// <returns></returns>
         public NetworkStreamResult Start()
         {
             byte[] cmd = new byte[18] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x4C, 0x4D, 0x43, 0x73, 0x74, 0x61, 0x72, 0x74, 0x6D, 0x65, 0x61, 0x73, 0x03 };
@@ -158,6 +173,10 @@ namespace LMS1XX
             return status;
         }
 
+        /// <summary>
+        /// Start the laser and (unless in Standby mode) the motor of the the device.
+        /// </summary>
+        /// <returns></returns>
         public async Task<NetworkStreamResult> StartAsync()
         {
             byte[] cmd = new byte[18] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x4C, 0x4D, 0x43, 0x73, 0x74, 0x61, 0x72, 0x74, 0x6D, 0x65, 0x61, 0x73, 0x03 };
@@ -182,6 +201,10 @@ namespace LMS1XX
             return status;
         }
 
+        /// <summary>
+        /// Shut off the laser and stop the motor of the the device.
+        /// </summary>
+        /// <returns></returns>
         public NetworkStreamResult Stop()
         {
             byte[] cmd = new byte[17] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x4C, 0x4D, 0x43, 0x73, 0x74, 0x6F, 0x70, 0x6D, 0x65, 0x61, 0x73, 0x03 };
@@ -207,6 +230,10 @@ namespace LMS1XX
             return status;
         }
 
+        /// <summary>
+        /// Shut off the laser and stop the motor of the the device.
+        /// </summary>
+        /// <returns></returns>
         public async Task<NetworkStreamResult> StopAsync()
         {
             byte[] cmd = new byte[17] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x4C, 0x4D, 0x43, 0x73, 0x74, 0x6F, 0x70, 0x6D, 0x65, 0x61, 0x73, 0x03 };
@@ -359,6 +386,13 @@ namespace LMS1XX
             }
         }
 
+        /// <summary>
+        /// Outputs values from last scan. 
+        /// </summary>
+        /// <remarks>
+        /// Asking the device for the measurement values of the last valid scan. The device will respond, even if it is not running at the moment.
+        /// </remarks>
+        /// <returns></returns>
         public LMDScandataResult LMDScandata()
         {
             byte[] command = new byte[] { 0x02, 0x73, 0x52, 0x4E, 0x20, 0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x03 };
@@ -456,6 +490,13 @@ namespace LMS1XX
                 return new LMDScandataResult() { IsError = true, ErrorException = new Exception("Client socket not connected.") };
         }
 
+        /// <summary>
+        /// Outputs values from last scan. 
+        /// </summary>
+        /// <remarks>
+        /// Asking the device for the measurement values of the last valid scan. The device will respond, even if it is not running at the moment.
+        /// </remarks>
+        /// <returns></returns>
         public async Task<LMDScandataResult> LMDScandataAsync()
         {
             byte[] command = new byte[] { 0x02, 0x73, 0x52, 0x4E, 0x20, 0x4C, 0x4D, 0x44, 0x73, 0x63, 0x61, 0x6E, 0x64, 0x61, 0x74, 0x61, 0x03 };
