@@ -43,6 +43,8 @@ namespace LMS1XX
         public enum SocketConnectionResult { CONNECTED = 0, CONNECT_TIMEOUT = 1, CONNECT_ERROR = 2, DISCONNECTED = 3, DISCONNECT_TIMEOUT = 4, DISCONNECT_ERROR = 5 }
         public enum NetworkStreamResult { STARTED = 0, STOPPED = 1, TIMEOUT = 2, ERROR = 3, CLIENT_NOT_CONNECTED = 4 }
         public enum UserLevel { MAINTENANCE = 0, AUTHORIZED_CLIENT = 1, SERVICE = 2 }
+        public enum ScanFrequency { TWENTY_FIVE_HERTZ = 0, FITY_HERTZ = 1 }
+        public enum AngularResolution { ZERO_POINT_TWENTY_FIVE_DEGREES = 0, ZERO_POINT_FIFTY_DEGREES = 1 }
 
         #endregion Enums
 
@@ -281,7 +283,7 @@ namespace LMS1XX
             {
                 NetworkStream serverStream = clientSocket.GetStream();
                 serverStream.Write(streamCommand, 0, streamCommand.Length);
-                
+
                 serverStream.Flush();
 
                 byte[] inStream = new byte[clientSocket.ReceiveBufferSize];
@@ -367,7 +369,7 @@ namespace LMS1XX
             byte[] servicePassword = new byte[] { 0x38, 0x31, 0x42, 0x45, 0x32, 0x33, 0x41, 0x41 };
 
             byte[] terminator = new byte[] { 0x03 };
-            
+
             // Sets selectedLevel according to user choice. The space is included after userLevel (0x20)
             switch (userLevel)
             {
@@ -415,7 +417,7 @@ namespace LMS1XX
                 else
                 {
                     return new LoginResponse() { IsError = true, ErrorException = new Exception("Raw data is null") };
-                }      
+                }
             }
             else
             {
@@ -424,6 +426,8 @@ namespace LMS1XX
         }
 
         #endregion Login
+
+        #region ScanDataResult
 
         public struct LMDScandataResult
         {
@@ -702,6 +706,8 @@ namespace LMS1XX
                 return new LMDScandataResult() { IsError = true, ErrorException = new Exception("Client socket not connected.") };
         }
 
+        #endregion ScanDataResult
+
         #region Reboot
         public struct RebootResponse
         {
@@ -709,32 +715,33 @@ namespace LMS1XX
             public Exception ErrorException;
             public byte[] RawData;
             public string RawDataString;
-            public string CommandType;
-            public string Command;
 
             public RebootResponse(byte[] rawData)
             {
                 IsError = true;
                 ErrorException = null;
                 RawData = null;
-                RawDataString = String.Empty;
-                CommandType = String.Empty;
-                Command = String.Empty;
+                RawDataString = Encoding.ASCII.GetString(rawData);
             }
         }
 
-        public RebootResponse RebootLIDAR()
+        /// <summary>
+        /// Reboots the LIDAR
+        /// </summary>
+        /// <remarks>Only works in AUTHORIZEDCLIENT and  SERVICE user levels</remarks>
+        /// <returns></returns>
+        public RebootResponse Reboot()
         {
             byte[] command = new byte[] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x6D, 0x53, 0x43, 0x72, 0x65, 0x62, 0x6F, 0x6F, 0x74, 0x03 };
 
-            if(clientSocket.Connected)
+            if (clientSocket.Connected)
             {
                 byte[] rawData = null;
                 try
                 {
                     rawData = this.ExecuteRaw(command);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     return new RebootResponse() { IsError = true, ErrorException = ex };
                 }
@@ -745,29 +752,6 @@ namespace LMS1XX
                     result.IsError = false;
                     result.ErrorException = null;
 
-                    int dataIndex = 0;
-                    int dataBlocCounter = 0;
-                    string dataBloc = String.Empty;
-
-                    while (dataBlocCounter < 2)
-                    {
-                        dataIndex++;
-                        if ((dataIndex < result.RawDataString.Length) && (result.RawDataString[dataIndex].ToString() == " "))
-                        {
-                            dataBloc += result.RawDataString[dataIndex];
-                        }
-                        else
-                        {
-                            ++dataBlocCounter;
-                            switch (dataBlocCounter)
-                            {
-                                case 1: result.CommandType = dataBloc; break;
-                                case 2: result.Command = dataBloc; break;
-                            }
-                            dataBloc = String.Empty;
-                            if (result.CommandType != "sRA") return result;
-                        }
-                    }
                     return result;
                 }
                 else
@@ -777,6 +761,221 @@ namespace LMS1XX
                 return new RebootResponse() { IsError = true, ErrorException = new Exception("Client socket not connected.") };
         }
         #endregion Reboot
+
+        #region SetScanConfiguration
+
+        public struct SetScanConfigurationResult
+        {
+            public bool IsError;
+            public Exception ErrorException;
+            public byte[] RawData;
+            public String RawDataString;
+
+            public SetScanConfigurationResult(byte[] rawData)
+            {
+                IsError = true;
+                ErrorException = null;
+                RawData = rawData;
+                RawDataString = Encoding.ASCII.GetString(rawData);
+            }
+        }
+
+        public SetScanConfigurationResult SetScanConfiguration(ScanFrequency scanFrequency, AngularResolution angularResolution)
+        {
+            // Main command fragment, with STX and final space
+            byte[] command = new byte[] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x6D, 0x4C, 0x4D, 0x50, 0x73, 0x65, 0x74, 0x73, 0x63, 0x61, 0x6E, 0x63, 0x66, 0x67, 0x20 };
+            byte[] chosenScanFrequency = null;
+            // Sectors fragment (this is always 1 for LMS1XX LIDARS) + space
+            byte[] sectors = new byte[] { 0x2B, 0x31, 0x20 };
+            byte[] chosenAngularResolution = null;
+            // Start angle fragment + space
+            byte[] startAngle = new byte[] { 0x2D, 0x34, 0x35, 0x30, 0x30, 0x30, 0x30, 0x20 };
+            // Stop angle fragment + ETX
+            byte[] stopAngle = new byte[] { 0x2B, 0x32, 0x32, 0x35, 0x30, 0x30, 0x30, 0x30, 0x03 };
+
+            switch (scanFrequency)
+            {
+                case ScanFrequency.TWENTY_FIVE_HERTZ:
+                    // +2500d + space (0x20)
+                    chosenScanFrequency = new byte[] { 0x2B, 0x32, 0x35, 0x30, 0x30, 0x20 };
+                    break;
+                case ScanFrequency.FITY_HERTZ:
+                    // +5000d + space (0x20)
+                    chosenScanFrequency = new byte[] { 0x2B, 0x35, 0x30, 0x30, 0x30, 0x20 };
+                    break;
+                default:
+                    break;
+            }
+
+            switch (angularResolution)
+            {
+                case AngularResolution.ZERO_POINT_TWENTY_FIVE_DEGREES:
+                    // +2500d + space (0x20)
+                    chosenAngularResolution = new byte[] { 0x2B, 0x32, 0x35, 0x30, 0x30, 0x20 };
+                    break;
+                case AngularResolution.ZERO_POINT_FIFTY_DEGREES:
+                    // +5000d + space (0x20)
+                    chosenAngularResolution = new byte[] { 0x2B, 0x35, 0x30, 0x30, 0x30, 0x20 };
+                    break;
+                default:
+                    break;
+            }
+
+            // Build final command
+            byte[] finalCommand = command.Concat(chosenScanFrequency).Concat(sectors).Concat(chosenAngularResolution).Concat(startAngle).Concat(stopAngle).ToArray();
+
+            if (clientSocket.Connected)
+            {
+                byte[] rawData = null;
+                try
+                {
+                    rawData = this.ExecuteRaw(finalCommand);
+                }
+                catch (Exception ex)
+                {
+                    return new SetScanConfigurationResult() { IsError = true, ErrorException = ex };
+                }
+
+                if (rawData != null)
+                {
+                    SetScanConfigurationResult result = new SetScanConfigurationResult(rawData);
+                    result.IsError = false;
+                    result.ErrorException = null;
+
+                    return result;
+                }
+                else
+                {
+                    return new SetScanConfigurationResult() { IsError = true, ErrorException = new Exception("Raw data is null") };
+                }
+            }
+            else
+            {
+                return new SetScanConfigurationResult() { IsError = true, ErrorException = new Exception("Socket is not connected") };
+            }
+        }
+
+        #endregion SetScanConfiguration
+
+        #region ReadDeviceState
+
+        public struct ReadDeviceStateResult
+        {
+            public bool IsError;
+            public Exception ErrorException;
+            public byte[] RawData;
+            public String RawDataString;
+
+            public ReadDeviceStateResult(byte[] rawData)
+            {
+                IsError = true;
+                ErrorException = null;
+                RawData = rawData;
+                RawDataString = Encoding.ASCII.GetString(rawData);
+            }
+        }
+
+        /// <summary>
+        /// Reads LIDAR's current status
+        /// </summary>
+        /// <remarks>0 = Busy, 1 = Ready, 2 = Error</remarks>
+        /// <returns></returns>
+        public ReadDeviceStateResult ReadDeviceState()
+        {
+            byte[] command = new byte[] { 0x02, 0x73, 0x52, 0x4E, 0x20, 0x53, 0x43, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65, 0x73, 0x74, 0x61, 0x74, 0x65, 0x03 };
+
+            if(clientSocket.Connected)
+            {
+                byte[] rawData = null;
+                try
+                {
+                    rawData = this.ExecuteRaw(command);
+                }
+                catch(Exception ex)
+                {
+                    return new ReadDeviceStateResult() { IsError = true, ErrorException = ex };
+                }
+
+                if(rawData != null)
+                {
+                    ReadDeviceStateResult result = new ReadDeviceStateResult(rawData);
+                    result.IsError = false;
+                    result.ErrorException = null;
+
+                    return result;
+                }
+                else
+                {
+                    return new ReadDeviceStateResult() { IsError = true, ErrorException = new Exception("Raw data is null") };
+                }
+            }
+            else
+            {
+                return new ReadDeviceStateResult() { IsError = true, ErrorException = new Exception("Socket is not connected") };
+            }
+        }
+
+
+        #endregion ReadDeviceState
+
+        #region ReadDeviceTemperature
+
+        public struct ReadDeviceTemperatureResponse
+        {
+            public bool IsError;
+            public Exception ErrorException;
+            public byte[] RawData;
+            public String RawDataString;
+
+            public ReadDeviceTemperatureResponse(byte[] rawData)
+            {
+                IsError = true;
+                ErrorException = null;
+                RawData = rawData;
+                RawDataString = Encoding.ASCII.GetString(RawData);
+            }
+        }
+
+        /// <summary>
+        /// Reads LIDAR's temperature
+        /// </summary>
+        /// <returns></returns>
+        public ReadDeviceTemperatureResponse ReadDeviceTemperature()
+        {
+            byte[] command = { 0x02, 0x73, 0x52, 0x4E, 0x20, 0x4F, 0x50, 0x63, 0x75, 0x72, 0x74, 0x6D, 0x70, 0x64, 0x65, 0x76, 0x03 };
+
+            if(clientSocket.Connected)
+            {
+                byte[] rawData = null;
+                try
+                {
+                    rawData = this.ExecuteRaw(command);
+                }
+                catch(Exception ex)
+                {
+                    return new ReadDeviceTemperatureResponse() { IsError = true, ErrorException = ex };
+                }
+
+                if(rawData != null)
+                {
+                    ReadDeviceTemperatureResponse result = new ReadDeviceTemperatureResponse(rawData);
+                    result.IsError = false;
+                    result.ErrorException = null;
+
+                    return result;
+                }
+                else
+                {
+                    return new ReadDeviceTemperatureResponse() { IsError = true, ErrorException = new Exception("Raw data is null") };
+                }
+            }
+            else
+            {
+                return new ReadDeviceTemperatureResponse() { IsError = true, ErrorException = new Exception("Socket is not connected") };
+            }
+        }
+
+        #endregion ReadDeviceTemperature
 
         #endregion
 
