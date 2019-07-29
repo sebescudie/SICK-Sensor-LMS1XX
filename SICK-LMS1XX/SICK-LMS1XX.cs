@@ -425,6 +425,8 @@ namespace LMS1XX
 
         #endregion Login
 
+        #region ScanDataResult
+
         public struct LMDScandataResult
         {
             public bool IsError;
@@ -702,6 +704,8 @@ namespace LMS1XX
                 return new LMDScandataResult() { IsError = true, ErrorException = new Exception("Client socket not connected.") };
         }
 
+        #endregion ScanDataResult
+
         #region Reboot
         public struct RebootResponse
         {
@@ -709,21 +713,23 @@ namespace LMS1XX
             public Exception ErrorException;
             public byte[] RawData;
             public string RawDataString;
-            public string CommandType;
-            public string Command;
+
 
             public RebootResponse(byte[] rawData)
             {
                 IsError = true;
                 ErrorException = null;
                 RawData = null;
-                RawDataString = String.Empty;
-                CommandType = String.Empty;
-                Command = String.Empty;
+                RawDataString = Encoding.ASCII.GetString(rawData);
             }
         }
 
-        public RebootResponse RebootLIDAR()
+        /// <summary>
+        /// Reboots the LIDAR
+        /// </summary>
+        /// <remarks>Only works in AUTHORIZEDCLIENT and  SERVICE user levels</remarks>
+        /// <returns></returns>
+        public RebootResponse Reboot()
         {
             byte[] command = new byte[] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x6D, 0x53, 0x43, 0x72, 0x65, 0x62, 0x6F, 0x6F, 0x74, 0x03 };
 
@@ -745,29 +751,6 @@ namespace LMS1XX
                     result.IsError = false;
                     result.ErrorException = null;
 
-                    int dataIndex = 0;
-                    int dataBlocCounter = 0;
-                    string dataBloc = String.Empty;
-
-                    while (dataBlocCounter < 2)
-                    {
-                        dataIndex++;
-                        if ((dataIndex < result.RawDataString.Length) && (result.RawDataString[dataIndex].ToString() == " "))
-                        {
-                            dataBloc += result.RawDataString[dataIndex];
-                        }
-                        else
-                        {
-                            ++dataBlocCounter;
-                            switch (dataBlocCounter)
-                            {
-                                case 1: result.CommandType = dataBloc; break;
-                                case 2: result.Command = dataBloc; break;
-                            }
-                            dataBloc = String.Empty;
-                            if (result.CommandType != "sRA") return result;
-                        }
-                    }
                     return result;
                 }
                 else
