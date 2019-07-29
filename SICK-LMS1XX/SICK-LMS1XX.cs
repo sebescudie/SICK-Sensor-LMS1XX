@@ -914,9 +914,68 @@ namespace LMS1XX
                 return new ReadDeviceStateResult() { IsError = true, ErrorException = new Exception("Socket is not connected") };
             }
         }
-   
+
 
         #endregion ReadDeviceState
+
+        #region ReadDeviceTemperature
+
+        public struct ReadDeviceTemperatureResponse
+        {
+            public bool IsError;
+            public Exception ErrorException;
+            public byte[] RawData;
+            public String RawDataString;
+
+            public ReadDeviceTemperatureResponse(byte[] rawData)
+            {
+                IsError = true;
+                ErrorException = null;
+                RawData = rawData;
+                RawDataString = Encoding.ASCII.GetString(RawData);
+            }
+        }
+
+        /// <summary>
+        /// Reads LIDAR's temperature
+        /// </summary>
+        /// <returns></returns>
+        public ReadDeviceTemperatureResponse ReadDeviceTemperature()
+        {
+            byte[] command = { 0x02, 0x73, 0x52, 0x4E, 0x20, 0x4F, 0x50, 0x63, 0x75, 0x72, 0x74, 0x6D, 0x70, 0x64, 0x65, 0x76, 0x03 };
+
+            if(clientSocket.Connected)
+            {
+                byte[] rawData = null;
+                try
+                {
+                    rawData = this.ExecuteRaw(command);
+                }
+                catch(Exception ex)
+                {
+                    return new ReadDeviceTemperatureResponse() { IsError = true, ErrorException = ex };
+                }
+
+                if(rawData != null)
+                {
+                    ReadDeviceTemperatureResponse result = new ReadDeviceTemperatureResponse(rawData);
+                    result.IsError = false;
+                    result.ErrorException = null;
+
+                    return result;
+                }
+                else
+                {
+                    return new ReadDeviceTemperatureResponse() { IsError = true, ErrorException = new Exception("Raw data is null") };
+                }
+            }
+            else
+            {
+                return new ReadDeviceTemperatureResponse() { IsError = true, ErrorException = new Exception("Socket is not connected") };
+            }
+        }
+
+        #endregion ReadDeviceTemperature
 
         #endregion
 
