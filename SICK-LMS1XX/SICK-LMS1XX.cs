@@ -32,17 +32,19 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace LMS1XX
 {
     public class LMS1XX
     {
-        #region Enumérations
+        #region Enums
 
         public enum SocketConnectionResult { CONNECTED = 0, CONNECT_TIMEOUT = 1, CONNECT_ERROR = 2, DISCONNECTED = 3, DISCONNECT_TIMEOUT = 4, DISCONNECT_ERROR = 5 }
         public enum NetworkStreamResult { STARTED = 0, STOPPED = 1, TIMEOUT = 2, ERROR = 3, CLIENT_NOT_CONNECTED = 4 }
+        public enum UserLevel { MAINTENANCE = 0, AUTHORIZED_CLIENT = 1, SERVICE = 2 }
 
-        #endregion
+        #endregion Enums
 
         #region Propriétés publiques
 
@@ -84,6 +86,7 @@ namespace LMS1XX
             return clientSocket.Connected;
         }
 
+        #region Connect
         /// <summary>
         /// Connects to the socket
         /// </summary>
@@ -123,7 +126,9 @@ namespace LMS1XX
             }
             return status;
         }
+        #endregion Connect
 
+        #region Disconnect
         /// <summary>
         /// Disconnects the socket
         /// </summary>
@@ -144,7 +149,9 @@ namespace LMS1XX
             }
             return status;
         }
+        #endregion Disconnect
 
+        #region Start
         /// <summary>
         /// Start the laser and (unless in Standby mode) the motor of the the device.
         /// </summary>
@@ -200,7 +207,9 @@ namespace LMS1XX
 
             return status;
         }
+        #endregion Start
 
+        #region Stop
         /// <summary>
         /// Shut off the laser and stop the motor of the the device.
         /// </summary>
@@ -258,13 +267,21 @@ namespace LMS1XX
 
             return status;
         }
+        #endregion Stop
 
+        #region ExecuteRaw
+        /// <summary>
+        /// Sends a raw command to the LIDAR
+        /// </summary>
+        /// <param name="streamCommand"></param>
+        /// <returns></returns>
         public byte[] ExecuteRaw(byte[] streamCommand)
         {
             try
             {
                 NetworkStream serverStream = clientSocket.GetStream();
                 serverStream.Write(streamCommand, 0, streamCommand.Length);
+                
                 serverStream.Flush();
 
                 byte[] inStream = new byte[clientSocket.ReceiveBufferSize];
@@ -296,7 +313,9 @@ namespace LMS1XX
                 return null;
             }
         }
+        #endregion ExecuteRaw
 
+        #region SetAccessMode
         public struct SetAccessModeResult
         {
             public byte[] RawData;
@@ -317,6 +336,94 @@ namespace LMS1XX
             result.RawData = await this.ExecuteRawAsync(command);
             return result;
         }
+        #endregion SetAccessMode
+
+        #region Login
+        public struct LoginResponse
+        {
+            public bool IsError;
+            public Exception ErrorException;
+            public byte[] RawData;
+            public string RawDataString;
+
+            public LoginResponse(byte[] rawData)
+            {
+                IsError = true;
+                ErrorException = null;
+                RawData = rawData;
+                RawDataString = Encoding.ASCII.GetString(rawData);
+            }
+        }
+
+        public LoginResponse Login(UserLevel userLevel)
+        {
+            // Command type + command + space
+            byte[] command = new byte[] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x53, 0x65, 0x74, 0x41, 0x63, 0x63, 0x65, 0x73, 0x73, 0x4D, 0x6F, 0x64, 0x65, 0x20 };
+            byte[] selectedLevel = null;
+            byte[] selectedPassword = null;
+
+            byte[] maintenancePassword = new byte[] { 0x42, 0x32, 0x31, 0x41, 0x43, 0x45, 0x32, 0x36 };
+            byte[] authorizedClientPassord = new byte[] { 0x46, 0x34, 0x37, 0x32, 0x34, 0x37, 0x34, 0x34 };
+            byte[] servicePassword = new byte[] { 0x38, 0x31, 0x42, 0x45, 0x32, 0x33, 0x41, 0x41 };
+
+            byte[] terminator = new byte[] { 0x03 };
+            
+            // Sets selectedLevel according to user choice. The space is included after userLevel (0x20)
+            switch (userLevel)
+            {
+                case UserLevel.MAINTENANCE:
+                    selectedLevel = new byte[] { 0x30, 0x32, 0x20 };
+                    selectedPassword = maintenancePassword;
+                    break;
+                case UserLevel.AUTHORIZED_CLIENT:
+                    selectedLevel = new byte[] { 0x30, 0x33, 0x20 };
+                    selectedPassword = authorizedClientPassord;
+                    break;
+                case UserLevel.SERVICE:
+                    selectedLevel = new byte[] { 0x30, 0x34, 0x20 };
+                    selectedPassword = servicePassword;
+                    break;
+                default:
+                    break;
+            }
+
+            // Build the final command
+            // byte[] finalCommand = command.Concat(selectedLevel).Concat(Encoding.ASCII.GetBytes(password)).Concat(terminator).ToArray();
+            byte[] finalCommand = command.Concat(selectedLevel).Concat(selectedPassword).Concat(terminator).ToArray();
+
+
+            if (clientSocket.Connected)
+            {
+                byte[] rawData = null;
+                try
+                {
+                    rawData = this.ExecuteRaw(finalCommand);
+                }
+                catch (Exception ex)
+                {
+                    return new LoginResponse() { IsError = true, ErrorException = ex };
+                }
+
+                if (rawData != null)
+                {
+                    LoginResponse result = new LoginResponse(rawData);
+                    result.IsError = false;
+                    result.ErrorException = null;
+
+                    return result;
+                }
+                else
+                {
+                    return new LoginResponse() { IsError = true, ErrorException = new Exception("Raw data is null") };
+                }      
+            }
+            else
+            {
+                return new LoginResponse() { IsError = true, ErrorException = new Exception("Socket is not connected") };
+            }
+        }
+
+        #endregion Login
 
         public struct LMDScandataResult
         {
@@ -594,6 +701,82 @@ namespace LMS1XX
             else
                 return new LMDScandataResult() { IsError = true, ErrorException = new Exception("Client socket not connected.") };
         }
+
+        #region Reboot
+        public struct RebootResponse
+        {
+            public bool IsError;
+            public Exception ErrorException;
+            public byte[] RawData;
+            public string RawDataString;
+            public string CommandType;
+            public string Command;
+
+            public RebootResponse(byte[] rawData)
+            {
+                IsError = true;
+                ErrorException = null;
+                RawData = null;
+                RawDataString = String.Empty;
+                CommandType = String.Empty;
+                Command = String.Empty;
+            }
+        }
+
+        public RebootResponse RebootLIDAR()
+        {
+            byte[] command = new byte[] { 0x02, 0x73, 0x4D, 0x4E, 0x20, 0x6D, 0x53, 0x43, 0x72, 0x65, 0x62, 0x6F, 0x6F, 0x74, 0x03 };
+
+            if(clientSocket.Connected)
+            {
+                byte[] rawData = null;
+                try
+                {
+                    rawData = this.ExecuteRaw(command);
+                }
+                catch(Exception ex)
+                {
+                    return new RebootResponse() { IsError = true, ErrorException = ex };
+                }
+
+                if (rawData != null)
+                {
+                    RebootResponse result = new RebootResponse(rawData);
+                    result.IsError = false;
+                    result.ErrorException = null;
+
+                    int dataIndex = 0;
+                    int dataBlocCounter = 0;
+                    string dataBloc = String.Empty;
+
+                    while (dataBlocCounter < 2)
+                    {
+                        dataIndex++;
+                        if ((dataIndex < result.RawDataString.Length) && (result.RawDataString[dataIndex].ToString() == " "))
+                        {
+                            dataBloc += result.RawDataString[dataIndex];
+                        }
+                        else
+                        {
+                            ++dataBlocCounter;
+                            switch (dataBlocCounter)
+                            {
+                                case 1: result.CommandType = dataBloc; break;
+                                case 2: result.Command = dataBloc; break;
+                            }
+                            dataBloc = String.Empty;
+                            if (result.CommandType != "sRA") return result;
+                        }
+                    }
+                    return result;
+                }
+                else
+                    return new RebootResponse() { IsError = true, ErrorException = new Exception("Raw Data is null") };
+            }
+            else
+                return new RebootResponse() { IsError = true, ErrorException = new Exception("Client socket not connected.") };
+        }
+        #endregion Reboot
 
         #endregion
 
