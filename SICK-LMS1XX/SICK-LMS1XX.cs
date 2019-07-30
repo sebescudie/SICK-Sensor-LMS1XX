@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Linq;
 
@@ -45,6 +46,8 @@ namespace LMS1XX
         public enum UserLevel { MAINTENANCE = 0, AUTHORIZED_CLIENT = 1, SERVICE = 2 }
         public enum ScanFrequency { TWENTY_FIVE_HERTZ = 0, FITY_HERTZ = 1 }
         public enum AngularResolution { ZERO_POINT_TWENTY_FIVE_DEGREES = 0, ZERO_POINT_FIFTY_DEGREES = 1 }
+        public enum StatusCode { BUSY = 0, READY = 1, ERROR = 2 }
+        public enum SetScanConfigStatusCode { NO_ERROR = 0, FREQUENCY_ERROR = 1, RESOLUTION_ERROR = 2, RESOLUTION_AND_SCANAREA_ERROR = 3, SCANAREA_ERROR = 4, OTHER_ERRORS = 5 }
 
         #endregion Enums
 
@@ -347,13 +350,19 @@ namespace LMS1XX
             public Exception ErrorException;
             public byte[] RawData;
             public string RawDataString;
+            public string CommandType;
+            public string Command;
+            public bool ChangedUserLevel;
 
             public LoginResponse(byte[] rawData)
             {
                 IsError = true;
                 ErrorException = null;
                 RawData = rawData;
-                RawDataString = Encoding.ASCII.GetString(rawData);
+                RawDataString = Encoding.ASCII.GetString(rawData, 1, 19);
+                CommandType = String.Empty;
+                Command = String.Empty;
+                ChangedUserLevel = false;
             }
         }
 
@@ -411,6 +420,18 @@ namespace LMS1XX
                     LoginResponse result = new LoginResponse(rawData);
                     result.IsError = false;
                     result.ErrorException = null;
+
+                    string[] blocs = result.RawDataString.Split(new string[] { " " }, StringSplitOptions.None);
+
+                    for(int i = 0; i < 3; i++)
+                    {
+                        switch(i)
+                        {
+                            case 0: result.CommandType = blocs[i]; break;
+                            case 1: result.Command = blocs[i]; break;
+                            case 2: result.ChangedUserLevel = blocs[i] == "1"; break;
+                        }
+                    }
 
                     return result;
                 }
@@ -770,13 +791,29 @@ namespace LMS1XX
             public Exception ErrorException;
             public byte[] RawData;
             public String RawDataString;
+            public String CommandType;
+            public String Command;
+            public SetScanConfigStatusCode StatusCode;
+            public float? ScanFrequency;
+            public float? NumberOfActiveSectors;
+            public float? AngularResolution;
+            public float? StartAngle;
+            public float? StopAngle;
 
             public SetScanConfigurationResult(byte[] rawData)
             {
                 IsError = true;
                 ErrorException = null;
                 RawData = rawData;
-                RawDataString = Encoding.ASCII.GetString(rawData);
+                RawDataString = Encoding.ASCII.GetString(rawData, 1, 50);
+                CommandType = String.Empty;
+                Command = String.Empty;
+                StatusCode = SetScanConfigStatusCode.OTHER_ERRORS;
+                ScanFrequency = null;
+                NumberOfActiveSectors = null;
+                AngularResolution = null;
+                StartAngle = null;
+                StopAngle = null;
             }
         }
 
@@ -842,6 +879,23 @@ namespace LMS1XX
                     result.IsError = false;
                     result.ErrorException = null;
 
+                    string[] blocs = result.RawDataString.Split(new string[] { " " }, StringSplitOptions.None);
+
+                    for(int i = 0; i < 8; i++)
+                    {
+                        switch(i)
+                        {
+                            case (0): result.CommandType = blocs[i]; break;
+                            case (1): result.Command = blocs[i]; break;
+                            case (2): result.StatusCode = (SetScanConfigStatusCode)int.Parse(blocs[i]); break;
+                            case (3): result.ScanFrequency = Convert.ToSingle(int.Parse(blocs[i], System.Globalization.NumberStyles.HexNumber)); break;
+                            case (4): result.NumberOfActiveSectors = Convert.ToSingle(int.Parse(blocs[i], System.Globalization.NumberStyles.HexNumber)); break;
+                            case (5): result.AngularResolution = Convert.ToSingle(int.Parse(blocs[i], System.Globalization.NumberStyles.HexNumber)); break;
+                            case (6): result.StartAngle = Convert.ToSingle(int.Parse(blocs[i], System.Globalization.NumberStyles.HexNumber)); break;
+                            // case (7): result.StopAngle = Convert.ToSingle(int.Parse(blocs[i], System.Globalization.NumberStyles.HexNumber)); break;
+                        }
+                    }
+
                     return result;
                 }
                 else
@@ -865,13 +919,19 @@ namespace LMS1XX
             public Exception ErrorException;
             public byte[] RawData;
             public String RawDataString;
+            public String CommandType;
+            public String Command;
+            public StatusCode Status;
 
             public ReadDeviceStateResult(byte[] rawData)
             {
                 IsError = true;
                 ErrorException = null;
                 RawData = rawData;
-                RawDataString = Encoding.ASCII.GetString(rawData);
+                RawDataString = Encoding.ASCII.GetString(rawData, 1, 19);
+                CommandType = String.Empty;
+                Command = String.Empty;
+                Status = StatusCode.ERROR;
             }
         }
 
@@ -902,6 +962,18 @@ namespace LMS1XX
                     result.IsError = false;
                     result.ErrorException = null;
 
+                    string[] blocs = result.RawDataString.Split(new string[] { " " }, StringSplitOptions.None);
+
+                    for(int i = 0; i < 3; i++)
+                    {
+                        switch(i)
+                        {
+                            case 0: result.CommandType = blocs[i]; break;
+                            case 1: result.Command = blocs[i]; break;
+                            case 2: result.Status = (StatusCode)int.Parse(blocs[i]); break;
+                        }
+                    }
+
                     return result;
                 }
                 else
@@ -926,13 +998,19 @@ namespace LMS1XX
             public Exception ErrorException;
             public byte[] RawData;
             public String RawDataString;
+            public String CommandType;
+            public String Command;
+            public float Temperature;
 
             public ReadDeviceTemperatureResponse(byte[] rawData)
             {
                 IsError = true;
                 ErrorException = null;
                 RawData = rawData;
-                RawDataString = Encoding.ASCII.GetString(RawData);
+                RawDataString = Encoding.ASCII.GetString(RawData, 1, 22);
+                CommandType = String.Empty;
+                Command = String.Empty;
+                Temperature = 0f;
             }
         }
 
@@ -961,6 +1039,18 @@ namespace LMS1XX
                     ReadDeviceTemperatureResponse result = new ReadDeviceTemperatureResponse(rawData);
                     result.IsError = false;
                     result.ErrorException = null;
+
+                    string[] blocs = result.RawDataString.Split(new string[] { " " }, StringSplitOptions.None);
+
+                    for(int i = 0; i < 3; i++)
+                    {
+                        switch (i)
+                        {
+                            case 0: result.CommandType = blocs[i]; break;
+                            case 1: result.Command = blocs[i]; break;
+                            case 2: result.Temperature = ConvertHexToSingle(blocs[i]); break;
+                        }
+                    }
 
                     return result;
                 }
@@ -1042,5 +1132,37 @@ namespace LMS1XX
         }
 
         #endregion
+
+        #region Utils
+
+        /// <summary>
+        /// Converts IEEE754 to Single
+        /// Taken from https://www.codeproject.com/Questions/99483/Convert-value-by-IEEE-754-protocol
+        /// </summary>
+        /// <param name="hexVal"></param>
+        /// <returns></returns>
+        private static Single ConvertHexToSingle(string hexVal)
+        {
+            try
+            {
+                int i = 0, j = 0;
+                byte[] bArray = new byte[4];
+                for (i = 0; i <= hexVal.Length - 1; i += 2)
+                {
+                    bArray[j] = Byte.Parse(hexVal[i].ToString() + hexVal[i + 1].ToString(), System.Globalization.NumberStyles.HexNumber);
+                    j += 1;
+                }
+                Array.Reverse(bArray);
+                Single s = BitConverter.ToSingle(bArray, 0);
+                return (s);
+            }
+            catch (Exception ex)
+            {
+                throw new FormatException("The supplied hex value is either empty or in an incorrect format.  Use the " +
+                    "following format: 00000000", ex);
+            }
+        }
+
+        #endregion Utils
     }
 }
