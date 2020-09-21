@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/10/nuspec.xsd">
   <metadata>
     <id>LMS1XX</id>
-    <version>$version$</version>
+    <version>1.0.0</version>
     <title>LMS1XX</title>
     <authors>beolabs-io</authors>
     <owners>sebescudie</owners>
@@ -13,6 +13,6 @@
     <tags>lidar</tags>
   </metadata>
   <files>
-    <file src="..\SICK-LMS1XX\bin\Debug\netstandard2.0\SICK-LMS1XX.dll" target="lib\netstandard2.0" exclude="" />
+    <file src="..\SICK-LMS1XX\bin\Release\netstandard2.0\SICK-LMS1XX.dll" target="lib\netstandard2.0" exclude="" />
   </files>
 </package>
